@@ -12,4 +12,4 @@ keywords = []
 categories = []
 
 [dependencies]
-anyhow = "0.1"
+anyhow = "1.0"
