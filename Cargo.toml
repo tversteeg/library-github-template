@@ -15,4 +15,4 @@ categories = []
 anyhow = "1.0.27"
 
 [dev-dependencies]
-doc_comment = "0.3.3"
+doc-comment = "0.3.3"
