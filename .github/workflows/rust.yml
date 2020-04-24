@@ -1,127 +1,83 @@
 name: CI
 on:
   push:
+    branches:
+      - master
     paths-ignore:
       - "docs/**"
       - "**.md"
   pull_request:
+    branches:
+      - master
     paths-ignore:
       - "docs/**"
       - "**.md"
 
 jobs:
-  # Run the `rustfmt` code formatter
-  rustfmt:
-    name: Rustfmt [Formatter]
+  rust:
+    name: check, fmt & test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: rustfmt
-          override: true
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - uses: actions/checkout@v2
 
-  # Run the `clippy` linting tool
-  clippy:
-    name: Clippy [Linter]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: clippy
-          override: true
-      - uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-targets --all-features -- -D clippy::all
+      - name: install dependencies
+        run: sudo apt-get install -y libx11-dev libxi-dev libgl1-mesa-dev
 
-  # Run a security audit on dependencies
-  cargo_audit:
-    name: Cargo Audit [Security]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
+      - name: install rust
+        uses: actions-rs/toolchain@v1
         with:
+          profile: default
           toolchain: stable
           override: true
-      - run: cargo install --force cargo-audit
-      - run: cargo generate-lockfile
-      - uses: actions-rs/cargo@v1
-        with:
-          command: audit
 
-  # Ensure that the project could be successfully compiled
-  cargo_check:
-    name: Compile
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: actions-rs/cargo@v1
+      - name: cargo check
+        uses: actions-rs/cargo@v1
         with:
           command: check
           args: --all
 
-  # Run tests on Linux, macOS, and Windows
-  # On both Rust stable and Rust nightly
-  test:
-    name: Test Suite
-    needs: [cargo_check]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
-        rust: [stable, nightly]
-    steps:
-      # Checkout the branch being tested
-      - uses: actions/checkout@v1
-
-      # Install all the required dependencies for testing
-      - uses: actions-rs/toolchain@v1
+      - name: cargo fmt
+        uses: actions-rs/cargo@v1
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
+          command: fmt
+          args: --all -- --check
 
-      # Install Node.js at a fixed version
-      - uses: actions/setup-node@v1
-        with:
-          node-version: "12.0"
-
-      # Install Ruby at a fixed version
-      - uses: actions/setup-ruby@v1
-        with:
-          ruby-version: "2.6"
-
-      # Install Python at a fixed version
-      - uses: actions/setup-python@v1
-        with:
-          python-version: "3.7"
-
-      # Install dotnet at a fixed version
-      - uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: "2.2.402"
-
-      # Run the ignored tests that expect the above setup
-      - name: Run all tests
+      - name: cargo test
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: -- -Z unstable-options --include-ignored
+
+  wasm:
+    name: wasm compile & deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          target: wasm32-unknown-unknown
+
+      - name: cargo build --release --example wasm
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --example wasm --target wasm32-unknown-unknown
+
+      - name: create www dir
+        run: |
+          mkdir www
+          cp target/wasm32-unknown-unknown/release/examples/*.wasm www
+          cp examples/wasm/*.html www
+
+      - name: deploy to github pages
+        uses: s0/git-publish-subdir-action@master
+        env:
+          REPO: self
+          BRANCH: gh-pages
+          FOLDER: www
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

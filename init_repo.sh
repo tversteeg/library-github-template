@@ -11,6 +11,10 @@ echo "Replacing project name in files with: \"$REPO_NAME\""
 # Replace the name
 git ls-files | xargs sed -i -e "s/replace_me/$REPO_NAME/g"
 
+# Replace the README file
+rm README.md
+mv REPLACE_README.md README.md
+
 # Remove this script
 rm init_repo.sh
 
