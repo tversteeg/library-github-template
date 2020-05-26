@@ -11,6 +11,9 @@ description = ""
 keywords = []
 categories = []
 
+[badges]
+maintenance = { status = "experimental" }
+
 [dependencies]
 anyhow = "1.0.28"
 
